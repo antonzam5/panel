@@ -116,15 +116,15 @@ color:var(--ink);border-radius:10px;padding:10px 12px;font:inherit;margin-bottom
   </div>
 </section>
 
-<section class="card"><h2>📁 Проекты</h2><div id="projects"></div></section>
-
-<section class="card"><h2>✅ Привычки · 7 дней</h2><div id="habits"></div></section>
-
 <section class="card notecard">
   <h2>📥 Заметка для Claude</h2>
   <textarea id="note" placeholder="Мысль, заметка, место, идея — Claude разберёт и разложит по файлам…"></textarea>
   <button onclick="addNoteUI()">Отправить в инбокс</button>
 </section>
+
+<section class="card"><h2>📁 Проекты</h2><div id="projects"></div></section>
+
+<section class="card"><h2>✅ Привычки · 7 дней</h2><div id="habits"></div></section>
 
 <footer id="foot"></footer>
 </div>
@@ -381,29 +381,41 @@ async function refresh(){
   $('refbtn').textContent = '↻';
 }
 
-/* ===== действия ===== */
-async function act(el, name, fn, msg, okText){
-  if (el) el.classList.add('busy');
-  try { await mutate(name, fn, msg); await refresh(); toast(okText); }
-  catch(e){ toast('⚠️ ' + e.message, true); if (el) el.classList.remove('busy'); }
+/* ===== действия — оптимистичные: сразу рисуем, в GitHub пишем в фоне ===== */
+const QUEUE = {};
+function sync(name, fn, msg, okText){
+  QUEUE[name] = (QUEUE[name] || Promise.resolve()).then(() =>
+    mutate(name, fn, msg)
+      .then(() => toast(okText))
+      .catch(e => { toast('⚠️ ' + e.message, true); refresh(); }));
 }
 function doneUI(el){
   const t = el.dataset.t, d = iso(new Date());
-  act(el, 'TASKS.md', md => mdCompleteTask(md, t, d), 'panel: ✅ ' + t, '✅ Сделано');
+  DATA.tasks.next = DATA.tasks.next.filter(x => x !== t);
+  DATA.tasks.doneCount++;
+  render();
+  sync('TASKS.md', md => mdCompleteTask(md, t, d), 'panel: ✅ ' + t, '✅ Сделано');
 }
 function addTaskUI(){
   const inp = $('newtask'), t = inp.value.trim(); if (!t) return;
   inp.value = '';
-  act(null, 'TASKS.md', md => mdAddTask(md, t), 'panel: ➕ ' + t, '➕ Добавлено');
+  DATA.tasks.next.push(t);
+  render();
+  sync('TASKS.md', md => mdAddTask(md, t), 'panel: ➕ ' + t, '➕ Добавлено');
 }
 function stepUI(el){
   const p = el.dataset.p, s = el.dataset.s, to = el.dataset.d !== '1';
-  act(el, 'TASKS.md', md => mdToggleStep(md, p, s, to),
+  const pr = DATA.tasks.projects.find(x => x.name === p);
+  const st = pr && pr.steps.find(x => x.text === s);
+  if (st){ st.done = to; render(); }
+  sync('TASKS.md', md => mdToggleStep(md, p, s, to),
     'panel: шаг ' + (to ? '✅' : '↩︎') + ' ' + s, to ? '✅ Шаг закрыт' : '↩︎ Вернул');
 }
 function habitUI(el){
   const h = el.dataset.h, d = el.dataset.d;
-  act(el, 'HABITS.md', md => mdToggleHabit(md, h, d), 'panel: привычка ' + h + ' ' + d, '✓');
+  const hb = DATA.habits.find(x => x.name === h);
+  if (hb){ hb.dates.has(d) ? hb.dates.delete(d) : hb.dates.add(d); render(); }
+  sync('HABITS.md', md => mdToggleHabit(md, h, d), 'panel: привычка ' + h + ' ' + d, '✓');
 }
 function addNoteUI(){
   const ta = $('note'), t = ta.value.trim(); if (!t) return;
@@ -411,7 +423,7 @@ function addNoteUI(){
   const n = new Date();
   const stamp = iso(n) + ' ' + String(n.getHours()).padStart(2, '0') + ':' +
     String(n.getMinutes()).padStart(2, '0');
-  act(null, 'INBOX.md', md => mdAppendInbox(md, t, stamp),
+  sync('INBOX.md', md => mdAppendInbox(md, t, stamp),
     'panel: 📥 заметка', '📥 В инбоксе — разберу');
 }
 
