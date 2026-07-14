@@ -61,6 +61,12 @@ td.name{text-align:left;font-size:14px;width:42%;cursor:default}
 .streak{font-size:12px;color:var(--mut);white-space:nowrap;cursor:default}
 footer{color:var(--mut);font-size:12px;text-align:center;margin:20px 0 8px}
 .empty{color:var(--mut);font-size:14px}
+.plain-list{list-style:none}
+.plain-list li{padding:7px 0;border-bottom:1px solid var(--line);font-size:14px}
+.plain-list li:last-child{border-bottom:0}
+.sub{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);margin:12px 0 4px}
+.sub:first-child{margin-top:0}
+.card a{color:var(--acc)}
 #toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);
 background:var(--ink);color:var(--bg);border-radius:10px;padding:9px 16px;font-size:14px;
 opacity:0;pointer-events:none;transition:opacity .25s;max-width:90%;z-index:9}
@@ -120,11 +126,18 @@ color:var(--ink);border-radius:10px;padding:10px 12px;font:inherit;margin-bottom
   <h2>📥 Заметка для Claude</h2>
   <textarea id="note" placeholder="Мысль, заметка, место, идея — Claude разберёт и разложит по файлам…"></textarea>
   <button onclick="addNoteUI()">Отправить в инбокс</button>
+  <div id="inbox" style="margin-top:10px"></div>
 </section>
 
 <section class="card"><h2>📁 Проекты</h2><div id="projects"></div></section>
 
 <section class="card"><h2>✅ Привычки · 7 дней</h2><div id="habits"></div></section>
+
+<section class="card"><h2>🚶 Места</h2><div id="places"></div></section>
+
+<section class="card"><h2>🎬 Рилсы</h2><div id="reels"></div></section>
+
+<section class="card"><h2>📓 Дневник · последние записи</h2><div id="journal"></div></section>
 
 <footer id="foot"></footer>
 </div>
@@ -286,6 +299,54 @@ function mdToggleHabit(md, habit, date){
   lines.splice(hs.end, 0, '- отметки: ' + date);
   return lines.join('\n');
 }
+/* ===== markdown: чтение остальных файлов (только просмотр) ===== */
+function parseInbox(md){
+  return md.split('\n').filter(l => l.trim().startsWith('- ')).map(l => l.trim().slice(2));
+}
+function parsePlaces(md){
+  const lines = md.split('\n'), out = [];
+  for (let i = 0; i < lines.length; i++){
+    if (!lines[i].startsWith('## ')) continue;
+    let j = i + 1;
+    while (j < lines.length && !lines[j].startsWith('## ') && lines[j].trim() !== '---') j++;
+    const items = lines.slice(i + 1, j)
+      .filter(l => l.trim().startsWith('- '))
+      .map(l => l.trim().slice(2));
+    if (items.length) out.push({name: lines[i].slice(3).trim(), items});
+    i = j - 1;
+  }
+  return out;
+}
+function parseReels(md){
+  const lines = md.split('\n'), out = [];
+  let inTable = false;
+  for (const line of lines){
+    if (/^\|\s*Дата/.test(line)){ inTable = true; continue; }
+    if (!inTable) continue;
+    if (/^\|[-\s|]+\|$/.test(line)) continue;
+    if (!line.startsWith('|')) break;
+    const cells = line.split('|').slice(1, -1).map(c => c.trim());
+    if (cells.length >= 4) out.push({date: cells[0], link: cells[1], topic: cells[2], gist: cells[3]});
+  }
+  return out;
+}
+function parseJournalRecent(md, n){
+  const lines = md.split('\n'), out = [];
+  for (let i = 0; i < lines.length && out.length < n; i++){
+    if (!lines[i].startsWith('## ')) continue;
+    let j = i + 1; while (j < lines.length && !lines[j].startsWith('## ')) j++;
+    out.push({date: lines[i].slice(3).trim(), body: lines.slice(i + 1, j).join('\n')});
+    i = j - 1;
+  }
+  return out;
+}
+function mdInline(s){
+  let t = esc(s);
+  t = t.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
+  t = t.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
+  t = t.replace(/`([^`]+)`/g, '<code>$1</code>');
+  return t;
+}
 function mdAppendInbox(md, text, stamp){
   if (!md.trim())
     md = '# Инбокс с панели\n\nЗаметки Антона. Claude: разобрать, разложить по файлам, разобранное удалить.\n';
@@ -293,7 +354,7 @@ function mdAppendInbox(md, text, stamp){
 }
 
 /* ===== состояние и рендер ===== */
-let DATA = {tasks: null, habits: null};
+let DATA = {tasks: null, habits: null, inbox: [], places: [], journal: [], reels: []};
 const $ = id => document.getElementById(id);
 const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
 const WD = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
@@ -350,6 +411,25 @@ function render(){
           '">' + (hit ? '✓' : '·') + '</td>';
       }).join('') + "<td class='streak'>" + (n ? '🔥 ' + n : '') + '</td></tr>';
     }).join('') + '</table>' : "<p class='empty'>Привычки не заведены</p>";
+  $('inbox').innerHTML = DATA.inbox.length
+    ? "<div class='sub'>ждёт разбора</div><ul class='plain-list'>" +
+      DATA.inbox.map(t => '<li>' + mdInline(t) + '</li>').join('') + '</ul>'
+    : '';
+  $('places').innerHTML = DATA.places.length
+    ? DATA.places.map(s => "<div class='sub'>" + esc(s.name) + "</div><ul class='plain-list'>" +
+        s.items.map(t => '<li>' + mdInline(t) + '</li>').join('') + '</ul>').join('')
+    : "<p class='empty'>Пока пусто</p>";
+  $('reels').innerHTML = DATA.reels.length
+    ? "<ul class='plain-list'>" + DATA.reels.map(r =>
+        '<li><b>' + esc(r.date) + '</b> — ' + mdInline(r.link) +
+        "<br><span style='color:var(--mut)'>" + esc(r.topic) + ' — ' + esc(r.gist) +
+        '</span></li>').join('') + '</ul>'
+    : "<p class='empty'>Пока нет разборов</p>";
+  $('journal').innerHTML = DATA.journal.length
+    ? DATA.journal.map(e => "<div class='sub'>" + esc(e.date) + "</div><ul class='plain-list'>" +
+        e.body.split('\n').filter(l => l.trim().startsWith('- '))
+          .map(l => '<li>' + mdInline(l.trim().slice(2)) + '</li>').join('') + '</ul>').join('')
+    : "<p class='empty'>Пусто</p>";
   $('foot').textContent = 'сделано всего: ' + T.doneCount + ' · данные из GitHub, ветка ' + BRANCH;
 }
 
@@ -370,9 +450,16 @@ async function diagnose(){
 async function refresh(){
   $('refbtn').innerHTML = "<span class='spin'>↻</span>";
   try {
-    const [t, h] = await Promise.all([getFile('TASKS.md'), getFile('HABITS.md')]);
+    const [t, h, ib, pl, jr, rl] = await Promise.all([
+      getFile('TASKS.md'), getFile('HABITS.md'), getFile('INBOX.md'),
+      getFile('PLACES.md'), getFile('JOURNAL.md'), getFile('REELS.md')
+    ]);
     DATA.tasks = parseTasks(t.text);
     DATA.habits = parseHabits(h.text);
+    DATA.inbox = parseInbox(ib.text);
+    DATA.places = parsePlaces(pl.text);
+    DATA.journal = parseJournalRecent(jr.text, 3);
+    DATA.reels = parseReels(rl.text);
     render();
     if (!t.sha && !h.sha) diagnose();
   } catch(e){
