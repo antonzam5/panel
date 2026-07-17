@@ -33,13 +33,21 @@ border-radius:6px;text-align:center;line-height:17px;font-size:13px;color:transp
 .addrow{display:flex;gap:8px;margin-top:12px}
 .addrow input,.notecard textarea{flex:1;border:1px solid var(--line);background:var(--bg);
 color:var(--ink);border-radius:10px;padding:9px 12px;font:inherit;font-size:15px}
-.addrow button,.notecard button,.setup button{border:0;background:var(--acc);color:#fff;
+.addrow button,.notecard #sendbtn,.setup button{border:0;background:var(--acc);color:#fff;
 border-radius:10px;padding:9px 14px;font-size:15px;cursor:pointer;font-weight:600}
+.notecard #sendbtn:disabled{opacity:.5}
 .notecard textarea{width:100%;min-height:64px;resize:vertical;margin-bottom:8px}
+.attachrow{display:flex;align-items:center;gap:10px;margin-bottom:10px;min-width:0}
+.filebtn{border:0;background:var(--soft);color:var(--mut);border-radius:10px;
+padding:8px 12px;font-size:14px;cursor:pointer;flex-shrink:0}
+#filelist{font-size:12px;color:var(--mut);overflow:hidden;text-overflow:ellipsis;
+white-space:nowrap}
+.ibody{min-width:0;display:flex;flex-direction:column;flex:1}
+.note-prev{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}
 .proj{padding:12px 0;border-bottom:1px solid var(--line)}
 .proj:last-child{border-bottom:0;padding-bottom:4px}
 .proj h3{font-size:16px;margin-bottom:4px}
-.meta{font-size:13px;color:var(--mut);margin-top:6px}
+.meta{font-size:13px;color:var(--mut);margin-top:2px}
 .meta b{color:var(--ink);font-weight:600}
 .dl{display:inline-block;background:var(--soft);color:var(--acc);font-size:12px;
 font-weight:600;border-radius:20px;padding:2px 10px;margin-left:6px}
@@ -61,16 +69,24 @@ td.name{text-align:left;font-size:14px;width:42%;cursor:default}
 .streak{font-size:12px;color:var(--mut);white-space:nowrap;cursor:default}
 footer{color:var(--mut);font-size:12px;text-align:center;margin:20px 0 8px}
 .empty{color:var(--mut);font-size:14px}
-.plain-list{list-style:none}
-.plain-list li{padding:7px 0;border-bottom:1px solid var(--line);font-size:14px}
-.plain-list li:last-child{border-bottom:0}
-.sub{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);margin:12px 0 4px}
-.sub:first-child{margin-top:0}
-.card a{color:var(--acc)}
 #toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);
 background:var(--ink);color:var(--bg);border-radius:10px;padding:9px 16px;font-size:14px;
-opacity:0;pointer-events:none;transition:opacity .25s;max-width:90%;z-index:9}
+opacity:0;pointer-events:none;transition:opacity .25s;max-width:90%;z-index:30}
 #toast.show{opacity:.95}
+#modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:20;
+padding:16px;overflow:auto}
+#modal.open{display:flex;align-items:flex-start;justify-content:center}
+.mbox{background:var(--card);border:1px solid var(--line);border-radius:var(--r);
+max-width:560px;width:100%;padding:20px;margin:40px 0}
+#mstamp{font-size:12px;color:var(--mut);margin-bottom:8px}
+#mtext{white-space:pre-wrap;font-size:15px}
+#mfiles img{max-width:100%;border-radius:10px;margin-top:10px}
+.mfile{margin-top:8px;font-size:14px}
+.mfile a{color:var(--acc)}
+.mbtns{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
+.mbtns button{border:0;border-radius:10px;padding:8px 14px;font-size:14px;cursor:pointer}
+.mdel{background:var(--soft);color:var(--acc)}
+.mclose{background:var(--acc);color:#fff}
 .setup{max-width:480px;margin:40px auto}
 .setup h1{margin-bottom:12px}
 .setup p{font-size:14px;color:var(--mut);margin-bottom:10px}
@@ -125,21 +141,33 @@ color:var(--ink);border-radius:10px;padding:10px 12px;font:inherit;margin-bottom
 <section class="card notecard">
   <h2>📥 Заметка для Claude</h2>
   <textarea id="note" placeholder="Мысль, заметка, место, идея — Claude разберёт и разложит по файлам…"></textarea>
-  <button onclick="addNoteUI()">Отправить в инбокс</button>
-  <div id="inbox" style="margin-top:10px"></div>
+  <div class="attachrow">
+    <input id="fileinp" type="file" multiple style="display:none" onchange="filesPicked()">
+    <button class="filebtn" onclick="document.getElementById('fileinp').click()">📎 Прикрепить</button>
+    <span id="filelist"></span>
+  </div>
+  <button id="sendbtn" onclick="addNoteUI()">Отправить в инбокс</button>
 </section>
+
+<section class="card"><h2>🗂 Инбокс · ждёт разбора</h2><ul id="inbox"></ul></section>
 
 <section class="card"><h2>📁 Проекты</h2><div id="projects"></div></section>
 
 <section class="card"><h2>✅ Привычки · 7 дней</h2><div id="habits"></div></section>
 
-<section class="card"><h2>🚶 Места</h2><div id="places"></div></section>
-
-<section class="card"><h2>🎬 Рилсы</h2><div id="reels"></div></section>
-
-<section class="card"><h2>📓 Дневник · последние записи</h2><div id="journal"></div></section>
-
 <footer id="foot"></footer>
+</div>
+
+<div id="modal" onclick="if(event.target===this)closeModal()">
+  <div class="mbox">
+    <div id="mstamp"></div>
+    <div id="mtext"></div>
+    <div id="mfiles"></div>
+    <div class="mbtns">
+      <button class="mdel" onclick="delNote()">🗑 Удалить</button>
+      <button class="mclose" onclick="closeModal()">Закрыть</button>
+    </div>
+  </div>
 </div>
 
 <div id="toast"></div>
@@ -150,6 +178,7 @@ color:var(--ink);border-radius:10px;padding:10px 12px;font:inherit;margin-bottom
 const REPO = 'antonzam5/assistant', BRANCH = 'main';
 const API = 'https://api.github.com/repos/' + REPO + '/contents/';
 let TOKEN = localStorage.getItem('gh-token') || '';
+const encPath = p => p.split('/').map(encodeURIComponent).join('/');
 
 /* ===== utf-8 base64 ===== */
 function b64enc(s){
@@ -169,7 +198,7 @@ function hdrs(){
   return {Authorization: 'Bearer ' + TOKEN, Accept: 'application/vnd.github+json'};
 }
 async function getFile(name){
-  const r = await fetch(API + name + '?ref=' + BRANCH + '&t=' + Date.now(),
+  const r = await fetch(API + encPath(name) + '?ref=' + BRANCH + '&t=' + Date.now(),
     {headers: hdrs(), cache: 'no-store'});
   if (r.status === 404) return {sha: null, text: ''};
   if (r.status === 401 || r.status === 403) throw new Error('токен не работает (' + r.status + ')');
@@ -180,9 +209,22 @@ async function getFile(name){
 async function putFile(name, text, sha, msg){
   const body = {message: msg, content: b64enc(text), branch: BRANCH};
   if (sha) body.sha = sha;
-  const r = await fetch(API + name,
+  const r = await fetch(API + encPath(name),
     {method: 'PUT', headers: hdrs(), body: JSON.stringify(body)});
   if (!r.ok) throw new Error('запись не прошла: ' + r.status);
+}
+async function putFileB64(path, b64, msg){
+  const r = await fetch(API + encPath(path),
+    {method: 'PUT', headers: hdrs(),
+     body: JSON.stringify({message: msg, content: b64, branch: BRANCH})});
+  if (!r.ok) throw new Error('файл не загрузился: ' + r.status);
+}
+async function fetchRaw(path){
+  const r = await fetch(API + encPath(path) + '?ref=' + BRANCH,
+    {headers: {Authorization: 'Bearer ' + TOKEN, Accept: 'application/vnd.github.raw'},
+     cache: 'no-store'});
+  if (!r.ok) throw new Error('не скачался (' + r.status + ')');
+  return r.blob();
 }
 /* свежий GET перед каждым PUT + один повтор при конфликте */
 async function mutate(name, fn, msg){
@@ -247,6 +289,25 @@ function parseHabits(md){
   }
   return out;
 }
+function parseInbox(md){
+  const lines = md.split('\n'), out = [];
+  for (let i = 0; i < lines.length; i++){
+    const m = lines[i].match(/^- (\d{4}-\d{2}-\d{2} \d{2}:\d{2}) — (.*)$/);
+    if (!m) continue;
+    const block = [lines[i]];
+    let j = i + 1;
+    while (j < lines.length && /^  \S/.test(lines[j])){ block.push(lines[j]); j++; }
+    const whole = block.join('\n');
+    const files = [];
+    const text = whole
+      .replace(/\s*\[📎 ([^\]]+)\]/g, (_, p) => { files.push(p); return ''; })
+      .replace(/^- \d{4}-\d{2}-\d{2} \d{2}:\d{2} — ?/, '')
+      .replace(/\n  /g, '\n');
+    out.push({stamp: m[1], text: text.trim(), files, block: whole});
+    i = j - 1;
+  }
+  return out;
+}
 
 /* ===== markdown: мутации (возвращают null, если якорь не найден) ===== */
 function mdCompleteTask(md, text, date){
@@ -299,62 +360,30 @@ function mdToggleHabit(md, habit, date){
   lines.splice(hs.end, 0, '- отметки: ' + date);
   return lines.join('\n');
 }
-/* ===== markdown: чтение остальных файлов (только просмотр) ===== */
-function parseInbox(md){
-  return md.split('\n').filter(l => l.trim().startsWith('- ')).map(l => l.trim().slice(2));
+function buildInboxBlock(text, stamp, files){
+  const lines = String(text || '').trim().replace(/\n{2,}/g, '\n').split('\n')
+    .map(l => l.trim()).filter(l => l !== '');
+  let block = '- ' + stamp + ' — ' + (lines[0] || '');
+  for (let i = 1; i < lines.length; i++) block += '\n  ' + lines[i];
+  (files || []).forEach(p => { block += ' [📎 ' + p + ']'; });
+  return block;
 }
-function parsePlaces(md){
-  const lines = md.split('\n'), out = [];
-  for (let i = 0; i < lines.length; i++){
-    if (!lines[i].startsWith('## ')) continue;
-    let j = i + 1;
-    while (j < lines.length && !lines[j].startsWith('## ') && lines[j].trim() !== '---') j++;
-    const items = lines.slice(i + 1, j)
-      .filter(l => l.trim().startsWith('- '))
-      .map(l => l.trim().slice(2));
-    if (items.length) out.push({name: lines[i].slice(3).trim(), items});
-    i = j - 1;
-  }
-  return out;
-}
-function parseReels(md){
-  const lines = md.split('\n'), out = [];
-  let inTable = false;
-  for (const line of lines){
-    if (/^\|\s*Дата/.test(line)){ inTable = true; continue; }
-    if (!inTable) continue;
-    if (/^\|[-\s|]+\|$/.test(line)) continue;
-    if (!line.startsWith('|')) break;
-    const cells = line.split('|').slice(1, -1).map(c => c.trim());
-    if (cells.length >= 4) out.push({date: cells[0], link: cells[1], topic: cells[2], gist: cells[3]});
-  }
-  return out;
-}
-function parseJournalRecent(md, n){
-  const lines = md.split('\n'), out = [];
-  for (let i = 0; i < lines.length && out.length < n; i++){
-    if (!lines[i].startsWith('## ')) continue;
-    let j = i + 1; while (j < lines.length && !lines[j].startsWith('## ')) j++;
-    out.push({date: lines[i].slice(3).trim(), body: lines.slice(i + 1, j).join('\n')});
-    i = j - 1;
-  }
-  return out;
-}
-function mdInline(s){
-  let t = esc(s);
-  t = t.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
-  t = t.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
-  t = t.replace(/`([^`]+)`/g, '<code>$1</code>');
-  return t;
-}
-function mdAppendInbox(md, text, stamp){
+function mdAppendInbox(md, text, stamp, files){
   if (!md.trim())
     md = '# Инбокс с панели\n\nЗаметки Антона. Claude: разобрать, разложить по файлам, разобранное удалить.\n';
-  return md.replace(/\s*$/, '') + '\n- ' + stamp + ' — ' + text.trim() + '\n';
+  return md.replace(/\s*$/, '') + '\n' + buildInboxBlock(text, stamp, files) + '\n';
+}
+function mdDeleteNote(md, block){
+  if (!block) return null;
+  const i = md.indexOf(block);
+  if (i < 0) return null;
+  let end = i + block.length;
+  if (md[end] === '\n') end++;
+  return md.slice(0, i) + md.slice(end);
 }
 
 /* ===== состояние и рендер ===== */
-let DATA = {tasks: null, habits: null, inbox: [], places: [], journal: [], reels: []};
+let DATA = {tasks: null, habits: null, inbox: []};
 const $ = id => document.getElementById(id);
 const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
 const WD = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
@@ -377,6 +406,13 @@ function render(){
     ? T.next.map(t => "<li class='task' onclick='doneUI(this)' data-t=\"" + esc(t) +
         "\"><span class='box'>✓</span><span class='txt'>" + esc(t) + '</span></li>').join('')
     : "<li class='empty'>Пусто — добавь первую 👇</li>";
+  $('inbox').innerHTML = DATA.inbox.length
+    ? DATA.inbox.map((n, i) => ({n, i})).reverse().map(({n, i}) =>
+        "<li class='task' onclick='openNote(" + i + ")'><span>📝</span>" +
+        "<span class='ibody'><span class='note-prev'>" +
+        esc(n.text || '📎 вложение') + "</span><span class='meta'>" + n.stamp +
+        (n.files.length ? ' · 📎 ' + n.files.length : '') + '</span></span></li>').join('')
+    : "<li class='empty'>Пусто — всё разобрано</li>";
   $('projects').innerHTML = T.projects.length ? T.projects.map(p => {
     const tot = p.steps.length, don = p.steps.filter(s => s.done).length;
     const pct = tot ? Math.round(100 * don / tot) : 0;
@@ -411,25 +447,6 @@ function render(){
           '">' + (hit ? '✓' : '·') + '</td>';
       }).join('') + "<td class='streak'>" + (n ? '🔥 ' + n : '') + '</td></tr>';
     }).join('') + '</table>' : "<p class='empty'>Привычки не заведены</p>";
-  $('inbox').innerHTML = DATA.inbox.length
-    ? "<div class='sub'>ждёт разбора</div><ul class='plain-list'>" +
-      DATA.inbox.map(t => '<li>' + mdInline(t) + '</li>').join('') + '</ul>'
-    : '';
-  $('places').innerHTML = DATA.places.length
-    ? DATA.places.map(s => "<div class='sub'>" + esc(s.name) + "</div><ul class='plain-list'>" +
-        s.items.map(t => '<li>' + mdInline(t) + '</li>').join('') + '</ul>').join('')
-    : "<p class='empty'>Пока пусто</p>";
-  $('reels').innerHTML = DATA.reels.length
-    ? "<ul class='plain-list'>" + DATA.reels.map(r =>
-        '<li><b>' + esc(r.date) + '</b> — ' + mdInline(r.link) +
-        "<br><span style='color:var(--mut)'>" + esc(r.topic) + ' — ' + esc(r.gist) +
-        '</span></li>').join('') + '</ul>'
-    : "<p class='empty'>Пока нет разборов</p>";
-  $('journal').innerHTML = DATA.journal.length
-    ? DATA.journal.map(e => "<div class='sub'>" + esc(e.date) + "</div><ul class='plain-list'>" +
-        e.body.split('\n').filter(l => l.trim().startsWith('- '))
-          .map(l => '<li>' + mdInline(l.trim().slice(2)) + '</li>').join('') + '</ul>').join('')
-    : "<p class='empty'>Пусто</p>";
   $('foot').textContent = 'сделано всего: ' + T.doneCount + ' · данные из GitHub, ветка ' + BRANCH;
 }
 
@@ -450,16 +467,11 @@ async function diagnose(){
 async function refresh(){
   $('refbtn').innerHTML = "<span class='spin'>↻</span>";
   try {
-    const [t, h, ib, pl, jr, rl] = await Promise.all([
-      getFile('TASKS.md'), getFile('HABITS.md'), getFile('INBOX.md'),
-      getFile('PLACES.md'), getFile('JOURNAL.md'), getFile('REELS.md')
-    ]);
+    const [t, h, ib] = await Promise.all(
+      [getFile('TASKS.md'), getFile('HABITS.md'), getFile('INBOX.md')]);
     DATA.tasks = parseTasks(t.text);
     DATA.habits = parseHabits(h.text);
     DATA.inbox = parseInbox(ib.text);
-    DATA.places = parsePlaces(pl.text);
-    DATA.journal = parseJournalRecent(jr.text, 3);
-    DATA.reels = parseReels(rl.text);
     render();
     if (!t.sha && !h.sha) diagnose();
   } catch(e){
@@ -504,14 +516,78 @@ function habitUI(el){
   if (hb){ hb.dates.has(d) ? hb.dates.delete(d) : hb.dates.add(d); render(); }
   sync('HABITS.md', md => mdToggleHabit(md, h, d), 'panel: привычка ' + h + ' ' + d, '✓');
 }
-function addNoteUI(){
-  const ta = $('note'), t = ta.value.trim(); if (!t) return;
-  ta.value = '';
+
+/* ===== заметки и вложения ===== */
+let PENDING = [];
+function filesPicked(){
+  PENDING = Array.from($('fileinp').files);
+  $('filelist').textContent = PENDING.map(f => f.name).join(', ');
+}
+const readB64 = f => new Promise((res, rej) => {
+  const r = new FileReader();
+  r.onload = () => res(String(r.result).split(',')[1]);
+  r.onerror = () => rej(new Error('не прочитался ' + f.name));
+  r.readAsDataURL(f);
+});
+async function addNoteUI(){
+  const ta = $('note'), t = ta.value.trim();
+  if (!t && !PENDING.length) return;
   const n = new Date();
   const stamp = iso(n) + ' ' + String(n.getHours()).padStart(2, '0') + ':' +
     String(n.getMinutes()).padStart(2, '0');
-  sync('INBOX.md', md => mdAppendInbox(md, t, stamp),
+  const btn = $('sendbtn'), files = PENDING.slice(), paths = [];
+  if (files.length){
+    btn.disabled = true; btn.textContent = 'Загружаю файлы…';
+    try {
+      for (const f of files){
+        if (f.size > 24 * 1024 * 1024) throw new Error('«' + f.name + '» больше 24 МБ');
+        const p = 'inbox-files/' + stamp.replace(/[: ]/g, '-') + '-' +
+          f.name.replace(/[^\wа-яё.\-]+/gi, '-');
+        await putFileB64(p, await readB64(f), 'panel: 📎 ' + f.name);
+        paths.push(p);
+      }
+    } catch(e){
+      toast('⚠️ ' + e.message, true);
+      btn.disabled = false; btn.textContent = 'Отправить в инбокс';
+      return;
+    }
+    btn.disabled = false; btn.textContent = 'Отправить в инбокс';
+  }
+  ta.value = ''; PENDING = []; $('fileinp').value = ''; $('filelist').textContent = '';
+  DATA.inbox.push({stamp, text: t, files: paths, block: buildInboxBlock(t, stamp, paths)});
+  render();
+  sync('INBOX.md', md => mdAppendInbox(md, t, stamp, paths),
     'panel: 📥 заметка', '📥 В инбоксе — разберу');
+}
+let CUR = null;
+async function openNote(i){
+  CUR = DATA.inbox[i]; if (!CUR) return;
+  $('mstamp').textContent = CUR.stamp;
+  $('mtext').textContent = CUR.text || '(только вложения)';
+  $('mfiles').innerHTML = '';
+  $('modal').classList.add('open');
+  for (const p of CUR.files){
+    const holder = document.createElement('div');
+    holder.className = 'mfile';
+    holder.textContent = '⏳ ' + p.split('/').pop();
+    $('mfiles').appendChild(holder);
+    try {
+      const url = URL.createObjectURL(await fetchRaw(p));
+      if (/\.(jpe?g|png|gif|webp|heic|svg)$/i.test(p))
+        holder.innerHTML = "<img src='" + url + "' alt=''>";
+      else
+        holder.innerHTML = "<a href='" + url + "' download='" +
+          esc(p.split('/').pop()) + "'>💾 " + esc(p.split('/').pop()) + '</a>';
+    } catch(e){ holder.textContent = '⚠️ ' + p.split('/').pop() + ': ' + e.message; }
+  }
+}
+function closeModal(){ $('modal').classList.remove('open'); CUR = null; }
+function delNote(){
+  if (!CUR) return;
+  const c = CUR; closeModal();
+  DATA.inbox = DATA.inbox.filter(x => x !== c);
+  render();
+  sync('INBOX.md', md => mdDeleteNote(md, c.block), 'panel: 🗑 заметка удалена', '🗑 Удалено');
 }
 
 /* ===== токен ===== */
