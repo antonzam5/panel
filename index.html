@@ -161,6 +161,8 @@ color:var(--ink);border-radius:10px;padding:10px 12px;font:inherit;margin-bottom
 
 <section class="card"><h2>🎬 Рилсы и референсы</h2><ul id="reels"></ul></section>
 
+<section class="card"><h2>📖 Насмотренность</h2><ul id="swipe"></ul></section>
+
 <footer id="foot"></footer>
 </div>
 
@@ -417,7 +419,7 @@ function mdDeleteNote(md, block){
 }
 
 /* ===== состояние и рендер ===== */
-let DATA = {tasks: null, habits: null, inbox: [], places: [], reels: []};
+let DATA = {tasks: null, habits: null, inbox: [], places: [], reels: [], swipe: []};
 const $ = id => document.getElementById(id);
 const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
 const WD = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
@@ -493,6 +495,10 @@ function render(){
     "<li class='task' onclick='openReel(" + i + ")'><span>🎬</span>" +
     "<span class='ibody'><span class='note-prev'>" + esc(r.title) + '</span></span></li>').join('')
     : "<li class='empty'>Разборов пока нет</li>";
+  $('swipe').innerHTML = DATA.swipe.length ? DATA.swipe.map((r, i) =>
+    "<li class='task' onclick='openSwipe(" + i + ")'><span>📖</span>" +
+    "<span class='ibody'><span class='note-prev'>" + esc(r.title) + '</span></span></li>').join('')
+    : "<li class='empty'>Разборов пока нет</li>";
   $('foot').textContent = 'сделано всего: ' + T.doneCount + ' · данные из GitHub, ветка ' + BRANCH;
 }
 
@@ -513,14 +519,15 @@ async function diagnose(){
 async function refresh(){
   $('refbtn').innerHTML = "<span class='spin'>↻</span>";
   try {
-    const [t, h, ib, pl, rl] = await Promise.all(
+    const [t, h, ib, pl, rl, sw] = await Promise.all(
       [getFile('TASKS.md'), getFile('HABITS.md'), getFile('INBOX.md'),
-       getFile('PLACES.md'), getFile('REELS.md')]);
+       getFile('PLACES.md'), getFile('REELS.md'), getFile('MARKETING_SWIPE.md')]);
     DATA.tasks = parseTasks(t.text);
     DATA.habits = parseHabits(h.text);
     DATA.inbox = parseInbox(ib.text);
     DATA.places = parsePlaces(pl.text);
     DATA.reels = parseReels(rl.text);
+    DATA.swipe = parseReels(sw.text);
     render();
     if (!t.sha && !h.sha) diagnose();
   } catch(e){
@@ -631,6 +638,11 @@ function openPlace(i){
 }
 function openReel(i){
   const r = DATA.reels[i]; if (!r) return;
+  CUR = null;
+  showModal(r.title, mdToHtml(r.body), false);
+}
+function openSwipe(i){
+  const r = DATA.swipe[i]; if (!r) return;
   CUR = null;
   showModal(r.title, mdToHtml(r.body), false);
 }
