@@ -68,11 +68,16 @@ td.name{text-align:left;font-size:14px;width:42%;cursor:default}
 .miss{color:var(--line)}
 .streak{font-size:12px;color:var(--mut);white-space:nowrap;cursor:default}
 footer{color:var(--mut);font-size:12px;text-align:center;margin:20px 0 8px}
+footer a{color:var(--acc);cursor:pointer}
 .empty{color:var(--mut);font-size:14px}
 #toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);
 background:var(--ink);color:var(--bg);border-radius:10px;padding:9px 16px;font-size:14px;
-opacity:0;pointer-events:none;transition:opacity .25s;max-width:90%;z-index:30}
-#toast.show{opacity:.95}
+opacity:0;pointer-events:none;transition:opacity .25s;max-width:90%;z-index:30;
+display:flex;align-items:center;gap:10px}
+#toast.show{opacity:.95;pointer-events:auto}
+#toast span{min-width:0;overflow-wrap:anywhere}
+#toast button{border:0;background:var(--acc);color:#fff;border-radius:6px;padding:4px 10px;
+font-size:13px;cursor:pointer;flex-shrink:0}
 #modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:20;
 padding:16px;overflow:auto}
 #modal.open{display:flex;align-items:flex-start;justify-content:center}
@@ -258,7 +263,7 @@ function findSec(lines, level, substr){
 }
 function parseTasks(md){
   const lines = md.split('\n');
-  const out = {next: [], projects: [], doneCount: 0};
+  const out = {next: [], projects: [], doneCount: 0, done: []};
   const ns = findSec(lines, 2, 'Следующие действия');
   if (ns) for (let i = ns.start + 1; i < ns.end; i++){
     const m = lines[i].match(/^- \[ \] (.+)$/); if (m) out.next.push(m[1]);
@@ -280,8 +285,10 @@ function parseTasks(md){
     }
   }
   const ds = findSec(lines, 2, 'Сделано');
-  if (ds) for (let i = ds.start + 1; i < ds.end; i++)
-    if (/^- \[x\] /.test(lines[i])) out.doneCount++;
+  if (ds) for (let i = ds.start + 1; i < ds.end; i++){
+    const m = lines[i].match(/^- \[x\] (\d{4}-\d{2}-\d{2}) — (.+)$/);
+    if (m){ out.doneCount++; out.done.push({date: m[1], text: m[2]}); }
+  }
   return out;
 }
 function parseHabits(md){
@@ -433,6 +440,16 @@ function toast(msg, err){
   const t = $('toast'); t.textContent = msg; t.classList.add('show');
   clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('show'), err ? 8000 : 1800);
 }
+function toastUndo(msg, onUndo, ms){
+  const t = $('toast');
+  t.innerHTML = "<span>" + esc(msg) + "</span><button>Отменить</button>";
+  t.querySelector('button').onclick = () => {
+    onUndo(); t.classList.remove('show'); clearTimeout(t._h);
+  };
+  t.classList.add('show');
+  clearTimeout(t._h);
+  t._h = setTimeout(() => t.classList.remove('show'), ms || 4000);
+}
 function render(){
   const now = new Date();
   $('date').textContent = DN[now.getDay()] + ', ' + now.getDate() + ' ' +
@@ -499,7 +516,8 @@ function render(){
     "<li class='task' onclick='openSwipe(" + i + ")'><span>📖</span>" +
     "<span class='ibody'><span class='note-prev'>" + esc(r.title) + '</span></span></li>').join('')
     : "<li class='empty'>Разборов пока нет</li>";
-  $('foot').textContent = 'сделано всего: ' + T.doneCount + ' · данные из GitHub, ветка ' + BRANCH;
+  $('foot').innerHTML = 'сделано всего: <a onclick="openDone()">' + T.doneCount +
+    '</a> · данные из GitHub, ветка ' + BRANCH;
 }
 
 /* ===== загрузка ===== */
@@ -548,8 +566,18 @@ function doneUI(el){
   const t = el.dataset.t, d = iso(new Date());
   DATA.tasks.next = DATA.tasks.next.filter(x => x !== t);
   DATA.tasks.doneCount++;
+  DATA.tasks.done.unshift({date: d, text: t});
   render();
-  sync('TASKS.md', md => mdCompleteTask(md, t, d), 'panel: ✅ ' + t, '✅ Сделано');
+  const timer = setTimeout(() => {
+    sync('TASKS.md', md => mdCompleteTask(md, t, d), 'panel: ✅ ' + t, '✅ Сделано');
+  }, 4000);
+  toastUndo('✅ ' + t, () => {
+    clearTimeout(timer);
+    DATA.tasks.next.push(t);
+    DATA.tasks.doneCount--;
+    DATA.tasks.done = DATA.tasks.done.filter(x => !(x.date === d && x.text === t));
+    render();
+  });
 }
 function addTaskUI(){
   const inp = $('newtask'), t = inp.value.trim(); if (!t) return;
@@ -645,6 +673,15 @@ function openSwipe(i){
   const r = DATA.swipe[i]; if (!r) return;
   CUR = null;
   showModal(r.title, mdToHtml(r.body), false);
+}
+function openDone(){
+  const list = DATA.tasks.done || [];
+  const html = list.length
+    ? list.map(d => "<div style='margin-bottom:6px'><b>" + esc(d.date) + '</b> — ' +
+        esc(d.text) + '</div>').join('')
+    : "<p class='empty'>Пока пусто</p>";
+  CUR = null;
+  showModal('✅ Сделано · ' + list.length, html, false);
 }
 async function openNote(i){
   CUR = DATA.inbox[i]; if (!CUR) return;
