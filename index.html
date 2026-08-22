@@ -731,7 +731,7 @@ function cloudRemove(){ try { if (TG && TG.CloudStorage) TG.CloudStorage.removeI
 
 /* ===== старт ===== */
 function showPanel(){ $('setup').style.display = 'none'; $('panel').style.display = 'block'; refresh(); }
-if (TOKEN){ showPanel(); }
+if (TOKEN){ showPanel(); if (TG) cloudSave(TOKEN); }  /* авто-миграция токена в облако */
 else if (TG && TG.CloudStorage){
   TG.CloudStorage.getItem('gh-token', function(err, val){
     if (!err && val){ TOKEN = val; try { localStorage.setItem('gh-token', val); } catch(e){} showPanel(); }
