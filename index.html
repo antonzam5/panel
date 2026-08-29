@@ -397,7 +397,7 @@ function mdToggleHabit(md, habit, date){
     if (m){
       const set = new Set(m[2].match(/\d{4}-\d{2}-\d{2}/g) || []);
       set.has(date) ? set.delete(date) : set.add(date);
-      lines[i] = '- отметки: ' + [...set].sort().join(', ');
+      lines[i] = m[1].replace(/\s*$/, ' ') + [...set].sort().join(', ');  /* отступ строки сохраняем */
       return lines.join('\n');
     }
   }
@@ -429,7 +429,11 @@ function mdDeleteNote(md, block){
 /* ===== состояние и рендер ===== */
 let DATA = {tasks: null, habits: null, inbox: [], places: [], reels: [], swipe: []};
 const $ = id => document.getElementById(id);
-const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+/* Экранируем И одинарную кавычку: href в mdToHtml обёрнут в '...', и URL из чужого
+   контента (подпись к рилсу → Qwen → MARKETING_SWIPE.md) иначе вырывался из атрибута
+   и подставлял свой обработчик события — с угоном GitHub-токена из localStorage. */
+const esc = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 const WD = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 const MN = ['января','февраля','марта','апреля','мая','июня','июля','августа',
   'сентября','октября','ноября','декабря'];
@@ -644,11 +648,12 @@ async function addNoteUI(){
   sync('INBOX.md', md => mdAppendInbox(md, t, stamp, paths),
     'panel: 📥 заметка', '📥 В инбоксе — разберу');
 }
+const A = "' target='_blank' rel='noopener noreferrer'>";   /* noopener: чужая вкладка не рулит нашей */
 function mdToHtml(s){
   let h = esc(s);
-  h = h.replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g, "<a href='$2' target='_blank'>$1</a>");
+  h = h.replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g, "<a href='$2" + A + "$1</a>");
   h = h.replace(/(^|[^'\]])(https?:\/\/[^\s<)]+)/gm, (m, pre, url) =>
-    pre + "<a href='" + url + "' target='_blank'>" + url + '</a>');
+    pre + "<a href='" + url + A + url + '</a>');
   h = h.replace(/\*\*([^*\n]+)\*\*/g, '<b>$1</b>');
   return h;
 }
