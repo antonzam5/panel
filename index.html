@@ -111,6 +111,7 @@ color:var(--ink);border-radius:10px;padding:10px 12px;font:inherit;margin-bottom
 
 <div id="setup" class="setup">
   <h1>🔑 Подключение панели</h1>
+  <p id="setupwhy" style="color:var(--acc);font-weight:600"></p>
   <p>Панель читает и пишет задачи прямо в твой GitHub-репозиторий
   <b>antonzam5/assistant</b>. Нужен токен доступа (один раз на устройство):</p>
   <ol>
@@ -555,6 +556,11 @@ async function refresh(){
     if (!t.sha && !h.sha) diagnose();
   } catch(e){
     toast('⚠️ ' + e.message, true);
+    if (/токен не работает/.test(e.message)){
+      /* истёк или отозван: без этого панель оставалась пустой, а тост исчезал через пару секунд */
+      showSetup();
+      $('setupwhy').textContent = '⚠️ Сохранённый токен больше не работает (истёк или отозван) — создай новый по шагам ниже.';
+    }
   }
   $('refbtn').textContent = '↻';
 }
@@ -731,18 +737,28 @@ function resetToken(){
 /* ===== Telegram Mini App + CloudStorage для токена ===== */
 const TG = window.Telegram && window.Telegram.WebApp;
 if (TG){ try { TG.ready(); TG.expand(); } catch(e){} }
-function cloudSave(t){ try { if (TG && TG.CloudStorage) TG.CloudStorage.setItem('gh-token', t); } catch(e){} }
-function cloudRemove(){ try { if (TG && TG.CloudStorage) TG.CloudStorage.removeItem('gh-token'); } catch(e){} }
+/* ⚠️ Скрипт Telegram создаёт window.Telegram.WebApp в ЛЮБОМ браузере (версия 6.0), а облако
+   там бросает WebAppMethodUnsupported. Без этой проверки обычный Safari без сохранённого
+   токена (он стирает данные сайта после недели без визитов) показывал белый экран:
+   старт падал раньше, чем успевал открыть экран входа (2026-10-22). */
+const IN_TG = !!(TG && TG.initData);
+const CLOUD = IN_TG && TG.CloudStorage && TG.isVersionAtLeast && TG.isVersionAtLeast('6.9');
+function cloudSave(t){ try { if (CLOUD) TG.CloudStorage.setItem('gh-token', t); } catch(e){} }
+function cloudRemove(){ try { if (CLOUD) TG.CloudStorage.removeItem('gh-token'); } catch(e){} }
 
 /* ===== старт ===== */
 function showPanel(){ $('setup').style.display = 'none'; $('panel').style.display = 'block'; refresh(); }
-if (TOKEN){ showPanel(); if (TG) cloudSave(TOKEN); }  /* авто-миграция токена в облако */
-else if (TG && TG.CloudStorage){
-  TG.CloudStorage.getItem('gh-token', function(err, val){
-    if (!err && val){ TOKEN = val; try { localStorage.setItem('gh-token', val); } catch(e){} showPanel(); }
-  });
+function showSetup(){ $('panel').style.display = 'none'; $('setup').style.display = 'block'; }
+if (TOKEN){ showPanel(); cloudSave(TOKEN); }  /* авто-миграция токена в облако */
+else if (CLOUD){
+  try {
+    TG.CloudStorage.getItem('gh-token', function(err, val){
+      if (!err && val){ TOKEN = val; try { localStorage.setItem('gh-token', val); } catch(e){} showPanel(); }
+      else showSetup();          /* раньше тут не делалось ничего — и экран оставался пустым */
+    });
+  } catch(e){ showSetup(); }
 }
-else $('setup').style.display = 'block';
+else showSetup();
 </script>
 </body>
 </html>
