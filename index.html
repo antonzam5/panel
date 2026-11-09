@@ -65,6 +65,10 @@ user-select:none;-webkit-user-select:none}
 .pnext .lbl{color:var(--mut)}
 .ptog{border:0;background:none;color:var(--acc);font-size:13px;padding:8px 0 0;cursor:pointer}
 .proj .steps{display:none}
+#groups:not(:empty){margin-top:4px;border-top:1px solid var(--line)}
+#groups .proj:first-child{padding-top:14px}
+.grp{padding:12px 0}
+.grp h3{font-size:15px}
 .proj.open .steps{display:block}
 .smore{display:block;font-size:12px;color:var(--mut);margin-top:2px}
 .meta{font-size:13px;color:var(--mut);margin-top:2px;overflow-wrap:anywhere}
@@ -168,6 +172,7 @@ color:var(--ink);border-radius:10px;padding:10px 12px;font:inherit;margin-bottom
     <button onclick="addTaskUI()">＋</button>
   </div>
   <ul id="tasks"></ul>
+  <div id="groups"></div>
 </section>
 
 <section class="card"><h2>✅ Привычки · 7 дней</h2><div id="habits"></div></section>
@@ -287,10 +292,16 @@ function findSec(lines, level, substr){
 }
 function parseTasks(md){
   const lines = md.split('\n');
-  const out = {next: [], projects: [], doneCount: 0, done: []};
+  /* next — все разовые дела по порядку; group[текст] — тема из «### 🏠 Дом» (у дел без темы нет) */
+  const out = {next: [], group: {}, groups: [], projects: [], doneCount: 0, done: []};
   const ns = findSec(lines, 2, 'Следующие действия');
+  let grp = '';
   if (ns) for (let i = ns.start + 1; i < ns.end; i++){
-    const m = lines[i].match(/^- \[ \] (.+)$/); if (m) out.next.push(m[1]);
+    if (lines[i].startsWith('### ')){
+      grp = lines[i].slice(4).trim(); if (!out.groups.includes(grp)) out.groups.push(grp); continue;
+    }
+    const m = lines[i].match(/^- \[ \] (.+)$/);
+    if (m){ out.next.push(m[1]); if (grp) out.group[m[1]] = grp; }
   }
   const ps = findSec(lines, 2, 'Проекты');
   if (ps){
@@ -410,8 +421,16 @@ function mdAddTask(md, text){
   for (let i = ns.end - 1; i > ns.start; i--)
     if (lines[i].includes('(пусто)') || lines[i].trim() === '_(пусто)_') lines.splice(i, 1);
   const ns2 = findSec(lines, 2, 'Следующие действия');
-  let ins = ns2.end;
-  while (ins - 1 > ns2.start && lines[ins - 1].trim() === '') ins--;
+  /* наверх, без темы — под строку «Новые — сюда, сверху» (туда же кладёт бот). В конец секции
+     нельзя: там группы «### …», и задача уехала бы в последнюю (в «🛒 Купить») */
+  let ins = -1;
+  for (let i = ns2.start + 1; i < ns2.end; i++)
+    if (lines[i].includes('Новые — сюда')){ ins = i + 1; break; }
+  if (ins < 0){
+    ins = ns2.end;
+    for (let i = ns2.start + 1; i < ns2.end; i++) if (lines[i].startsWith('### ')){ ins = i; break; }
+    while (ins - 1 > ns2.start && lines[ins - 1].trim() === '') ins--;
+  }
   lines.splice(ins, 0, '- [ ] ' + text);
   return lines.join('\n');
 }
@@ -475,7 +494,6 @@ try { OPEN = new Set(JSON.parse(lsGet('open-proj') || 'null') || []); } catch(e)
 const OPEN_SAVED = lsGet('open-proj') !== null;
 let SHOW_ALL = false;
 const TASKS_SHOWN = 8;
-const FRESH = new Set();   /* добавленные с панели в этот заход — не прятать за «Показать все» */
 /* Экранируем И одинарную кавычку: href в mdToHtml обёрнут в '...', и URL из чужого
    контента (подпись к рилсу → Qwen → MARKETING_SWIPE.md) иначе вырывался из атрибута
    и подставлял свой обработчик события — с угоном GitHub-токена из localStorage. */
@@ -530,15 +548,22 @@ function render(){
   } else nh += "<p class='empty'>Фокус дня ещё не выбирали — придёт в 12:00 в боте.</p>";
   nh += "<div class='stat'>За 7 дней закрыто задач: <b>" + done7 + '</b></div>';
   $('now').innerHTML = nh;
-  const list = SHOW_ALL ? T.next
-    : T.next.filter((t, i) => i < TASKS_SHOWN || FRESH.has(t));
-  $('tasks').innerHTML = (T.next.length
-    ? list.map(t => "<li class='task' onclick='doneUI(this)' data-t=\"" + esc(t) +
-        "\"><span class='box'>✓</span><span class='txt'>" + fmt(t) + '</span></li>').join('') +
-      (T.next.length > TASKS_SHOWN
+  /* разовые дела: сначала без темы (первые 8), ниже — свёрнутые группы «🏠 Дом · 5» */
+  const taskLi = t => "<li class='task' onclick='doneUI(this)' data-t=\"" + esc(t) +
+    "\"><span class='box'>✓</span><span class='txt'>" + fmt(t) + '</span></li>';
+  const ung = T.next.filter(t => !T.group[t]);
+  const list = SHOW_ALL ? ung : ung.slice(0, TASKS_SHOWN);
+  $('tasks').innerHTML = !T.next.length ? "<li class='empty'>Пусто — добавь первую 👇</li>"
+    : list.map(taskLi).join('') + (ung.length > TASKS_SHOWN
         ? "<li><button class='showall' onclick='SHOW_ALL=!SHOW_ALL;render()'>" +
-          (SHOW_ALL ? 'Свернуть' : 'Показать все · ' + T.next.length) + '</button></li>' : '')
-    : "<li class='empty'>Пусто — добавь первую 👇</li>");
+          (SHOW_ALL ? 'Свернуть' : 'Показать все · ' + ung.length) + '</button></li>' : '');
+  $('groups').innerHTML = T.groups.map(g => {
+    const ts = T.next.filter(t => T.group[t] === g); if (!ts.length) return '';
+    return "<div class='proj grp" + (OPEN.has('g:' + g) ? ' open' : '') + "'>" +
+      "<div class='phead' onclick='grpUI(this)' data-g=\"" + esc(g) + "\"><h3>" + esc(g) +
+      "</h3><span class='pcount'>" + ts.length + "</span></div><ul class='steps'>" +
+      ts.map(taskLi).join('') + '</ul></div>';
+  }).join('');
   $('inbox').innerHTML = DATA.inbox.length
     ? DATA.inbox.map((n, i) => ({n, i})).reverse().map(({n, i}) =>
         "<li class='task' onclick='openNote(" + i + ")'><span>📝</span>" +
@@ -683,10 +708,15 @@ function doneUI(el){
 function addTaskUI(){
   const inp = $('newtask'), t = inp.value.trim(); if (!t) return;
   inp.value = '';
-  DATA.tasks.next.push(t);
-  FRESH.add(t);   /* только что добавленную видно и в свёрнутом списке */
+  DATA.tasks.next.unshift(t);   /* в файле она тоже встаёт наверх — см. mdAddTask */
   render();
   sync('TASKS.md', md => mdAddTask(md, t), 'panel: ➕ ' + t, '➕ Добавлено');
+}
+function grpUI(el){
+  const g = 'g:' + el.dataset.g;
+  OPEN.has(g) ? OPEN.delete(g) : OPEN.add(g);
+  lsSet('open-proj', JSON.stringify([...OPEN]));
+  render();
 }
 function projUI(el){
   const p = el.dataset.p;
