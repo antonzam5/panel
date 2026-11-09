@@ -22,9 +22,19 @@ padding:6px 10px;font-size:14px;cursor:pointer}
 padding:18px 20px;margin-bottom:16px}
 h2{font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);
 margin-bottom:12px}
-ul{list-style:none}
+ul{list-style:none;padding:0}   /* без padding:0 браузер давал списку отступ 40px */
 .task{display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);
 cursor:pointer;user-select:none;-webkit-user-select:none;align-items:flex-start}
+.txt{min-width:0;overflow-wrap:anywhere}   /* длинные ссылки переносятся, а не вылезают за карточку */
+code{font:13px/1.4 ui-monospace,Menlo,monospace;background:var(--soft);border-radius:4px;padding:0 4px}
+.showall{border:0;background:none;color:var(--acc);font-size:14px;padding:10px 0 0;cursor:pointer}
+.now .fstep{font-size:17px;font-weight:600;margin:4px 0 6px;overflow-wrap:anywhere}
+.now .ftask{font-size:13px;color:var(--mut);overflow-wrap:anywhere}
+.mark{display:inline-block;font-size:12px;font-weight:600;border-radius:20px;padding:2px 10px;
+background:var(--soft);color:var(--mut)}
+.mark.ok{color:var(--ok)}
+.mark.wait{color:var(--acc)}
+.stat{font-size:13px;color:var(--mut);margin-top:12px;padding-top:10px;border-top:1px solid var(--line)}
 .task:last-child{border-bottom:0}
 .box{flex:0 0 20px;height:20px;margin-top:2px;border:1.5px solid var(--mut);
 border-radius:6px;text-align:center;line-height:17px;font-size:13px;color:transparent}
@@ -44,10 +54,20 @@ padding:8px 12px;font-size:14px;cursor:pointer;flex-shrink:0}
 white-space:nowrap}
 .ibody{min-width:0;display:flex;flex-direction:column;flex:1}
 .note-prev{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}
-.proj{padding:12px 0;border-bottom:1px solid var(--line)}
+.proj{padding:14px 0;border-bottom:1px solid var(--line)}
+.proj:first-child{padding-top:2px}
 .proj:last-child{border-bottom:0;padding-bottom:4px}
-.proj h3{font-size:16px;margin-bottom:4px}
-.meta{font-size:13px;color:var(--mut);margin-top:2px}
+.phead{display:flex;align-items:baseline;justify-content:space-between;gap:10px;cursor:pointer;
+user-select:none;-webkit-user-select:none}
+.proj h3{font-size:16px;min-width:0;overflow-wrap:anywhere}
+.pcount{font-size:13px;color:var(--mut);white-space:nowrap;font-variant-numeric:tabular-nums}
+.pnext{font-size:14px;margin-top:6px;overflow-wrap:anywhere}
+.pnext .lbl{color:var(--mut)}
+.ptog{border:0;background:none;color:var(--acc);font-size:13px;padding:8px 0 0;cursor:pointer}
+.proj .steps{display:none}
+.proj.open .steps{display:block}
+.smore{display:block;font-size:12px;color:var(--mut);margin-top:2px}
+.meta{font-size:13px;color:var(--mut);margin-top:2px;overflow-wrap:anywhere}
 .meta b{color:var(--ink);font-weight:600}
 .dl{display:inline-block;background:var(--soft);color:var(--acc);font-size:12px;
 font-weight:600;border-radius:20px;padding:2px 10px;margin-left:6px}
@@ -136,6 +156,28 @@ color:var(--ink);border-radius:10px;padding:10px 12px;font:inherit;margin-bottom
   </div>
 </header>
 
+<section class="card now" id="nowcard"><h2>🎯 Сейчас</h2><div id="now"></div></section>
+
+<section class="card"><h2>📁 Проекты · по приоритету</h2><div id="projects"></div></section>
+
+<section class="card">
+  <h2>🔥 Разовые дела</h2>
+  <div class="addrow">
+    <input id="newtask" placeholder="Новая задача…" autocomplete="off"
+      onkeydown="if(event.key==='Enter')addTaskUI()">
+    <button onclick="addTaskUI()">＋</button>
+  </div>
+  <ul id="tasks"></ul>
+</section>
+
+<section class="card"><h2>✅ Привычки · 7 дней</h2><div id="habits"></div></section>
+
+<section class="card"><h2>📍 Места</h2><div id="places"></div></section>
+
+<section class="card"><h2>🎬 Рилсы и референсы</h2><ul id="reels"></ul></section>
+
+<section class="card"><h2>📖 Насмотренность</h2><ul id="swipe"></ul></section>
+
 <section class="card notecard">
   <h2>📥 Заметка для Claude</h2>
   <textarea id="note" placeholder="Мысль, заметка, место, идея — Claude разберёт и разложит по файлам…"></textarea>
@@ -147,27 +189,7 @@ color:var(--ink);border-radius:10px;padding:10px 12px;font:inherit;margin-bottom
   <button id="sendbtn" onclick="addNoteUI()">Отправить в инбокс</button>
 </section>
 
-<section class="card">
-  <h2>🔥 Следующие действия</h2>
-  <div class="addrow">
-    <input id="newtask" placeholder="Новая задача…" autocomplete="off"
-      onkeydown="if(event.key==='Enter')addTaskUI()">
-    <button onclick="addTaskUI()">＋</button>
-  </div>
-  <ul id="tasks"></ul>
-</section>
-
 <section class="card"><h2>🗂 Инбокс · ждёт разбора</h2><ul id="inbox"></ul></section>
-
-<section class="card"><h2>📁 Проекты</h2><div id="projects"></div></section>
-
-<section class="card"><h2>✅ Привычки · 7 дней</h2><div id="habits"></div></section>
-
-<section class="card"><h2>📍 Места</h2><div id="places"></div></section>
-
-<section class="card"><h2>🎬 Рилсы и референсы</h2><ul id="reels"></ul></section>
-
-<section class="card"><h2>📖 Насмотренность</h2><ul id="swipe"></ul></section>
 
 <footer id="foot"></footer>
 </div>
@@ -279,8 +301,15 @@ function parseTasks(md){
       const body = sub.slice(i, j).join('\n');
       const fld = n => (body.match(new RegExp('\\*\\*' + n + ':\\*\\*\\s*(.+)')) || [,''])[1];
       const steps = [];
-      body.replace(/^\s*- \[([ x])\] (.+)$/gm,
-        (_, c, t) => { steps.push({done: c === 'x', text: t}); return _; });
+      for (let k = i + 1; k < j; k++){
+        const m = sub[k].match(/^(\s*)- \[([ x])\] (.+)$/); if (!m) continue;
+        /* строки-продолжения шага (отступ глубже, не новый пункт) — мелким текстом под шагом;
+           text остаётся первой строкой: по ней панель находит шаг в файле */
+        const more = [];
+        while (k + 1 < j && sub[k + 1].trim() && !/^\s*- /.test(sub[k + 1]) &&
+               sub[k + 1].match(/^\s*/)[0].length > m[1].length){ more.push(sub[k + 1].trim()); k++; }
+        steps.push({done: m[2] === 'x', text: m[3], more: more.join(' ')});
+      }
       out.projects.push({name: sub[i].slice(4).trim(), goal: fld('Итог'),
         next: fld('Следующий шаг'), deadline: fld('Дедлайн'), steps});
       i = j - 1;
@@ -292,6 +321,14 @@ function parseTasks(md){
     if (m){ out.doneCount++; out.done.push({date: m[1], text: m[2]}); }
   }
   return out;
+}
+/* FOCUS.md → свежая запись журнала: «- 2026-11-07 · ⏳ ждёт · шаг · задача: … · помешало: …» */
+function parseFocus(md){
+  for (const l of md.split('\n')){
+    const m = l.match(/^- (\d{4}-\d{2}-\d{2}) · (.+?) · (.+?) · задача: (.+?)(?: · помешало: (.+))?$/);
+    if (m) return {date: m[1], mark: m[2], step: m[3], task: m[4], why: m[5] || ''};
+  }
+  return null;
 }
 function parseHabits(md){
   const lines = md.split('\n'), out = [];
@@ -428,13 +465,25 @@ function mdDeleteNote(md, block){
 }
 
 /* ===== состояние и рендер ===== */
-let DATA = {tasks: null, habits: null, inbox: [], places: [], reels: [], swipe: []};
+let DATA = {tasks: null, habits: null, inbox: [], places: [], reels: [], swipe: [], focus: null};
 const $ = id => document.getElementById(id);
+/* localStorage может бросить (приватный режим, вебвью) — панель от этого не должна падать */
+const lsGet = k => { try { return localStorage.getItem(k); } catch(e){ return null; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch(e){} };
+let OPEN = null;          /* раскрытые проекты; по умолчанию — первый (главный) */
+try { OPEN = new Set(JSON.parse(lsGet('open-proj') || 'null') || []); } catch(e){ OPEN = new Set(); }
+const OPEN_SAVED = lsGet('open-proj') !== null;
+let SHOW_ALL = false;
+const TASKS_SHOWN = 8;
 /* Экранируем И одинарную кавычку: href в mdToHtml обёрнут в '...', и URL из чужого
    контента (подпись к рилсу → Qwen → MARKETING_SWIPE.md) иначе вырывался из атрибута
    и подставлял свой обработчик события — с угоном GitHub-токена из localStorage. */
 const esc = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
   .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+/* короткий markdown для строк задач: `код`, **жирный**, [текст](ссылка) → текст (строка кликабельна
+   целиком — ссылка внутри только мешала бы отметке) */
+const fmt = s => esc(s).replace(/\[([^\]]+)\]\(https?:[^)\s]+\)/g, '$1')
+  .replace(/`([^`]+)`/g, '<code>$1</code>').replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>');
 const WD = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 const MN = ['января','февраля','марта','апреля','мая','июня','июля','августа',
   'сентября','октября','ноября','декабря'];
@@ -461,10 +510,33 @@ function render(){
   $('date').textContent = DN[now.getDay()] + ', ' + now.getDate() + ' ' +
     MN[now.getMonth()] + ' ' + now.getFullYear();
   const T = DATA.tasks;
-  $('tasks').innerHTML = T.next.length
-    ? T.next.map(t => "<li class='task' onclick='doneUI(this)' data-t=\"" + esc(t) +
-        "\"><span class='box'>✓</span><span class='txt'>" + esc(t) + '</span></li>').join('')
-    : "<li class='empty'>Пусто — добавь первую 👇</li>";
+  /* 🎯 Сейчас: фокус дня из FOCUS.md + сколько закрыто за неделю */
+  const F = DATA.focus, todayIso = iso(now);
+  const wk = new Date(now); wk.setDate(wk.getDate() - 6);
+  const done7 = (T.done || []).filter(d => d.date >= iso(wk)).length;
+  let nh = '';
+  if (F){
+    const isToday = F.date === todayIso;
+    if (!isToday && /⏳/.test(F.mark)) F.mark = '⏭ без ответа';   /* вчерашнее «ждёт» уже не ждёт */
+    const [fd, fm] = [F.date.slice(8, 10), F.date.slice(5, 7)];
+    const cls = /✅|🌓/.test(F.mark) ? ' ok' : /⏳/.test(F.mark) ? ' wait' : '';
+    nh += "<div class='meta'>" + (isToday ? 'Фокус дня' : 'Последний фокус · ' + fd + '.' + fm) +
+      " <span class='mark" + cls + "'>" + esc(F.mark) + '</span></div>' +
+      "<div class='fstep'>" + fmt(F.step) + '</div>' +
+      "<div class='ftask'>" + fmt(F.task.replace(/^«|»$/g, '')) +
+      (F.why ? ' · помешало: ' + esc(F.why) : '') + '</div>';
+    if (!isToday) nh += "<div class='meta' style='margin-top:6px'>Новый фокус приходит в 12:00 в боте.</div>";
+  } else nh += "<p class='empty'>Фокус дня ещё не выбирали — придёт в 12:00 в боте.</p>";
+  nh += "<div class='stat'>За 7 дней закрыто задач: <b>" + done7 + '</b></div>';
+  $('now').innerHTML = nh;
+  const list = SHOW_ALL ? T.next : T.next.slice(0, TASKS_SHOWN);
+  $('tasks').innerHTML = (T.next.length
+    ? list.map(t => "<li class='task' onclick='doneUI(this)' data-t=\"" + esc(t) +
+        "\"><span class='box'>✓</span><span class='txt'>" + fmt(t) + '</span></li>').join('') +
+      (T.next.length > TASKS_SHOWN
+        ? "<li><button class='showall' onclick='SHOW_ALL=!SHOW_ALL;render()'>" +
+          (SHOW_ALL ? 'Свернуть' : 'Показать все · ' + T.next.length) + '</button></li>' : '')
+    : "<li class='empty'>Пусто — добавь первую 👇</li>");
   $('inbox').innerHTML = DATA.inbox.length
     ? DATA.inbox.map((n, i) => ({n, i})).reverse().map(({n, i}) =>
         "<li class='task' onclick='openNote(" + i + ")'><span>📝</span>" +
@@ -472,20 +544,29 @@ function render(){
         esc(n.text || '📎 вложение') + "</span><span class='meta'>" + n.stamp +
         (n.files.length ? ' · 📎 ' + n.files.length : '') + '</span></span></li>').join('')
     : "<li class='empty'>Пусто — всё разобрано</li>";
+  if (!OPEN_SAVED && !OPEN.size && T.projects.length) OPEN.add(T.projects[0].name);
   $('projects').innerHTML = T.projects.length ? T.projects.map(p => {
     const tot = p.steps.length, don = p.steps.filter(s => s.done).length;
     const pct = tot ? Math.round(100 * don / tot) : 0;
-    return "<div class='proj'><h3>" + esc(p.name) +
-      (p.deadline ? "<span class='dl'>⏰ " + esc(p.deadline) + '</span>' : '') + '</h3>' +
-      (p.goal ? "<div class='meta'>Итог: " + esc(p.goal) + '</div>' : '') +
-      (p.next ? "<div class='meta'>Следующий шаг: <b>" + esc(p.next) + '</b></div>' : '') +
+    const open = OPEN.has(p.name);
+    /* плашка — только для настоящей даты; «не ставим — …» в поле дедлайна плашкой не показываем */
+    const dl = /\d{1,2}[.\s]|\d{4}-\d{2}-\d{2}/.test(p.deadline) && !/не став/i.test(p.deadline)
+      ? "<span class='dl'>⏰ " + esc(p.deadline.slice(0, 40)) + '</span>' : '';
+    return "<div class='proj" + (open ? ' open' : '') + "'>" +
+      "<div class='phead' onclick='projUI(this)' data-p=\"" + esc(p.name) + "\"><h3>" + esc(p.name) +
+      dl + "</h3><span class='pcount'>" + (tot ? don + '/' + tot : '') + '</span></div>' +
+      (p.next ? "<div class='pnext'><span class='lbl'>Дальше:</span> " + fmt(p.next) + '</div>' : '') +
       (tot ? "<div class='bar'><i style='width:" + pct + "%'></i></div>" +
-        "<div class='pct'>" + don + ' из ' + tot + ' шагов · ' + pct + '%</div>' +
-        "<div class='steps'>" + p.steps.map(s =>
+        "<div class='steps'>" + (p.goal ? "<div class='meta' style='margin-top:8px'>Итог: " +
+          fmt(p.goal) + '</div>' : '') + p.steps.map(s =>
           "<div class='task" + (s.done ? ' done' : '') + "' onclick='stepUI(this)' data-p=\"" +
           esc(p.name) + '" data-s="' + esc(s.text) + '" data-d="' + (s.done ? 1 : 0) +
-          "\"><span class='box'>✓</span><span class='txt'>" + esc(s.text) + '</span></div>'
-        ).join('') + '</div>' : '') + '</div>';
+          "\"><span class='box'>✓</span><span class='txt'>" + fmt(s.text) +
+          (s.more ? "<span class='smore'>" + fmt(s.more) + '</span>' : '') + '</span></div>'
+        ).join('') + '</div>' +
+        "<button class='ptog' onclick='projUI(this)' data-p=\"" + esc(p.name) + "\">" +
+          (open ? 'Свернуть шаги' : 'Шаги · ' + don + ' из ' + tot + ' сделано') + '</button>'
+        : '') + '</div>';
   }).join('') : "<p class='empty'>Проектов нет</p>";
   const days = []; for (let i = 6; i >= 0; i--){
     const d = new Date(now); d.setDate(d.getDate() - i); days.push(d);
@@ -543,10 +624,12 @@ async function diagnose(){
 async function refresh(){
   $('refbtn').innerHTML = "<span class='spin'>↻</span>";
   try {
-    const [t, h, ib, pl, rl, sw] = await Promise.all(
+    const [t, h, ib, pl, rl, sw, fc] = await Promise.all(
       [getFile('TASKS.md'), getFile('HABITS.md'), getFile('INBOX.md'),
-       getFile('PLACES.md'), getFile('REELS.md'), getFile('MARKETING_SWIPE.md')]);
+       getFile('PLACES.md'), getFile('REELS.md'), getFile('MARKETING_SWIPE.md'),
+       getFile('FOCUS.md').catch(() => ({text: ''}))]);
     DATA.tasks = parseTasks(t.text);
+    DATA.focus = parseFocus(fc.text);
     DATA.habits = parseHabits(h.text);
     DATA.inbox = parseInbox(ib.text);
     DATA.places = parsePlaces(pl.text);
@@ -596,6 +679,12 @@ function addTaskUI(){
   DATA.tasks.next.push(t);
   render();
   sync('TASKS.md', md => mdAddTask(md, t), 'panel: ➕ ' + t, '➕ Добавлено');
+}
+function projUI(el){
+  const p = el.dataset.p;
+  OPEN.has(p) ? OPEN.delete(p) : OPEN.add(p);
+  lsSet('open-proj', JSON.stringify([...OPEN]));
+  render();
 }
 function stepUI(el){
   const p = el.dataset.p, s = el.dataset.s, to = el.dataset.d !== '1';
