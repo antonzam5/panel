@@ -475,6 +475,7 @@ try { OPEN = new Set(JSON.parse(lsGet('open-proj') || 'null') || []); } catch(e)
 const OPEN_SAVED = lsGet('open-proj') !== null;
 let SHOW_ALL = false;
 const TASKS_SHOWN = 8;
+const FRESH = new Set();   /* добавленные с панели в этот заход — не прятать за «Показать все» */
 /* Экранируем И одинарную кавычку: href в mdToHtml обёрнут в '...', и URL из чужого
    контента (подпись к рилсу → Qwen → MARKETING_SWIPE.md) иначе вырывался из атрибута
    и подставлял свой обработчик события — с угоном GitHub-токена из localStorage. */
@@ -529,7 +530,8 @@ function render(){
   } else nh += "<p class='empty'>Фокус дня ещё не выбирали — придёт в 12:00 в боте.</p>";
   nh += "<div class='stat'>За 7 дней закрыто задач: <b>" + done7 + '</b></div>';
   $('now').innerHTML = nh;
-  const list = SHOW_ALL ? T.next : T.next.slice(0, TASKS_SHOWN);
+  const list = SHOW_ALL ? T.next
+    : T.next.filter((t, i) => i < TASKS_SHOWN || FRESH.has(t));
   $('tasks').innerHTML = (T.next.length
     ? list.map(t => "<li class='task' onclick='doneUI(this)' data-t=\"" + esc(t) +
         "\"><span class='box'>✓</span><span class='txt'>" + fmt(t) + '</span></li>').join('') +
@@ -656,27 +658,33 @@ function sync(name, fn, msg, okText){
       .then(() => toast(okText))
       .catch(e => { toast('⚠️ ' + e.message, true); refresh(); }));
 }
+const UNDO_MS = 6000;
 function doneUI(el){
   const t = el.dataset.t, d = iso(new Date());
+  const pos = DATA.tasks.next.indexOf(t);   /* куда вернуть при «Отменить» */
   DATA.tasks.next = DATA.tasks.next.filter(x => x !== t);
   DATA.tasks.doneCount++;
   DATA.tasks.done.unshift({date: d, text: t});
   render();
   const timer = setTimeout(() => {
     sync('TASKS.md', md => mdCompleteTask(md, t, d), 'panel: ✅ ' + t, '✅ Сделано');
-  }, 4000);
+  }, UNDO_MS);
   toastUndo('✅ ' + t, () => {
     clearTimeout(timer);
-    DATA.tasks.next.push(t);
+    /* на своё место, а не в конец: в конце она пряталась за «Показать все» и казалось,
+       что «Отменить» не сработало */
+    if (!DATA.tasks.next.includes(t))
+      DATA.tasks.next.splice(pos < 0 ? 0 : Math.min(pos, DATA.tasks.next.length), 0, t);
     DATA.tasks.doneCount--;
     DATA.tasks.done = DATA.tasks.done.filter(x => !(x.date === d && x.text === t));
     render();
-  });
+  }, UNDO_MS);
 }
 function addTaskUI(){
   const inp = $('newtask'), t = inp.value.trim(); if (!t) return;
   inp.value = '';
   DATA.tasks.next.push(t);
+  FRESH.add(t);   /* только что добавленную видно и в свёрнутом списке */
   render();
   sync('TASKS.md', md => mdAddTask(md, t), 'panel: ➕ ' + t, '➕ Добавлено');
 }
